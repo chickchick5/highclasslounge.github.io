@@ -211,7 +211,8 @@ footer{border-top:.5px solid rgba(201,168,76,.1);text-align:center;padding:1.4re
   <div class="edit-bar" id="edit-bar">
     <span class="edit-bar-label">✦ Edit Mode</span>
     <button class="toggle-btn" id="edit-toggle" onclick="toggleEdit()">開啟編輯</button>
-    <button class="save-btn" onclick="saveData()">儲存變更</button>
+    <button class="save-btn" onclick="saveData()">儲存並推送</button>
+    <button class="toggle-btn" onclick="openGhModal()" style="font-size:11px">⚙ GitHub 設定</button>
     <button class="reset-btn" onclick="resetData()">還原預設</button>
   </div>
 
@@ -626,6 +627,41 @@ footer{border-top:.5px solid rgba(201,168,76,.1);text-align:center;padding:1.4re
   </div>
 </div>
 
+<!-- GitHub Settings Modal -->
+<div id="gh-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="border:.5px solid rgba(201,168,76,.4);background:#0e0b08;padding:2.4rem 2rem;max-width:400px;width:92%;position:relative">
+    <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:4px;color:var(--gold);margin-bottom:.9rem;opacity:.7;text-align:center">⚙ GITHUB SETTINGS</div>
+    <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--gold-l);margin-bottom:.4rem;text-align:center">GitHub 自動推送設定</div>
+    <div style="width:32px;height:.5px;background:var(--gold);margin:0 auto 1.4rem;opacity:.5"></div>
+    <div style="font-size:11px;color:var(--text2);line-height:1.9;margin-bottom:1.2rem;letter-spacing:.5px">
+      設定後，按「儲存並推送」會自動把修改上傳到 GitHub，<br>所有人即時看到更新。設定只存在你自己瀏覽器，不會外洩。
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:1.2rem">
+      <div>
+        <div style="font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:5px;font-family:'Cinzel',serif">PERSONAL ACCESS TOKEN</div>
+        <input id="gh-token-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off"
+          style="width:100%;background:rgba(201,168,76,.06);border:.5px solid rgba(201,168,76,.25);color:var(--gold-l);font-family:monospace;font-size:12px;padding:9px 12px;outline:none;letter-spacing:1px">
+        <div style="font-size:10px;color:var(--text2);margin-top:4px">GitHub → Settings → Developer Settings → Personal Access Tokens → 勾選 repo 權限</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:5px;font-family:'Cinzel',serif">REPOSITORY（帳號/repo名稱）</div>
+        <input id="gh-repo-input" type="text" placeholder="yourname/yourrepo" autocomplete="off"
+          style="width:100%;background:rgba(201,168,76,.06);border:.5px solid rgba(201,168,76,.25);color:var(--gold-l);font-family:monospace;font-size:13px;padding:9px 12px;outline:none;letter-spacing:1px">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:5px;font-family:'Cinzel',serif">FILE PATH（通常不用改）</div>
+        <input id="gh-file-input" type="text" placeholder="index.html" autocomplete="off"
+          style="width:100%;background:rgba(201,168,76,.06);border:.5px solid rgba(201,168,76,.25);color:var(--gold-l);font-family:monospace;font-size:13px;padding:9px 12px;outline:none;letter-spacing:1px">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button onclick="saveGhSettings()" style="background:var(--gold-d);border:none;color:var(--gold-l);font-family:'Cinzel',serif;font-size:11px;letter-spacing:2px;padding:9px 24px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='var(--gold)'" onmouseout="this.style.background='var(--gold-d)'">儲存設定</button>
+      <button onclick="closeGhModal()" style="background:rgba(201,168,76,.06);border:.5px solid rgba(201,168,76,.2);color:var(--text2);font-family:'Cinzel',serif;font-size:11px;letter-spacing:2px;padding:9px 18px;cursor:pointer">取消</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
 // ── Password gate ──────────────────────────────────────────
 const EDIT_PASSWORD = '20260526'; // ← 在這裡修改密碼
@@ -716,35 +752,131 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'),2600);
 }
 
-// Save / Reset
-function saveData(){
-  const data={
-    main: document.querySelector('main').innerHTML,
+// ── GitHub 設定（填入後儲存即永久記住）──────────────────────
+// 這三個欄位只要在「GitHub 設定」彈窗填一次，之後就自動記住
+let GH_TOKEN  = localStorage.getItem('gh_token')  || '';
+let GH_REPO   = localStorage.getItem('gh_repo')   || '';  // 格式: 帳號/repo名稱
+let GH_FILE   = localStorage.getItem('gh_file')   || 'index.html'; // 通常不用改
+
+// ── 儲存 ────────────────────────────────────────────────────
+async function saveData(){
+  // 1. 永遠先存 localStorage（備份）
+  const snap = {
+    main:   document.querySelector('main').innerHTML,
     header: document.getElementById('site-header').innerHTML
   };
-  localStorage.setItem('zhicui_v2', JSON.stringify(data));
-  showToast('✦ 已儲存，下次開啟自動載入');
-}
-function resetData(){
-  if(confirm('確定要還原所有內容為預設值？此操作無法復原。')){
-    localStorage.removeItem('zhicui_v2');location.reload();
+  localStorage.setItem('zhicui_v2', JSON.stringify(snap));
+
+  // 2. 如果有設定 GitHub Token → 嘗試推上去
+  if(GH_TOKEN && GH_REPO){
+    await pushToGitHub();
+  } else {
+    // 沒設定 → 提示去設定
+    showToast('✦ 已存到本機，點「GitHub 設定」可讓所有人看到更新');
   }
 }
-(function loadData(){
-  const s=localStorage.getItem('zhicui_v2');
-  if(!s)return;
+
+// ── 推送到 GitHub ────────────────────────────────────────────
+async function pushToGitHub(){
+  showToast('⏳ 正在上傳到 GitHub...');
   try{
-    const data=JSON.parse(s);
-    // 新格式（含 header）
+    const apiBase = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`;
+
+    // 取得目前檔案的 SHA（更新時必須帶入）
+    const getMeta = await fetch(apiBase, {
+      headers: { Authorization: `token ${GH_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if(!getMeta.ok) throw new Error(`無法讀取檔案（${getMeta.status}），請確認 Token 與 Repo 設定`);
+    const meta = await getMeta.json();
+    const sha  = meta.sha;
+
+    // 取得完整頁面 HTML（包含最新內容）
+    const fullHTML = getFullHTML();
+    const encoded  = btoa(unescape(encodeURIComponent(fullHTML)));
+
+    // 推送
+    const put = await fetch(apiBase, {
+      method: 'PUT',
+      headers: {
+        Authorization: `token ${GH_TOKEN}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: `update: ${new Date().toLocaleString('zh-TW')}`,
+        content: encoded,
+        sha: sha
+      })
+    });
+    if(!put.ok){
+      const err = await put.json();
+      throw new Error(err.message || put.status);
+    }
+    showToast('✦ 已成功推送到 GitHub！所有人即時可見');
+  } catch(e){
+    showToast('✕ 推送失敗：' + e.message);
+    console.error(e);
+  }
+}
+
+// 取得完整 HTML 字串（把目前頁面最新狀態序列化）
+function getFullHTML(){
+  const clone = document.documentElement.cloneNode(true);
+  // 把 main 與 header 換成最新的
+  clone.querySelector('main').innerHTML = document.querySelector('main').innerHTML;
+  clone.querySelector('#site-header').innerHTML = document.getElementById('site-header').innerHTML;
+  // 移除所有 contenteditable 屬性（存成乾淨 HTML）
+  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  return '<!DOCTYPE html>\n' + clone.outerHTML;
+}
+
+// ── 還原 ────────────────────────────────────────────────────
+function resetData(){
+  if(confirm('確定要還原所有內容為預設值？此操作無法復原。')){
+    localStorage.removeItem('zhicui_v2');
+    location.reload();
+  }
+}
+
+// ── 載入本機備份 ─────────────────────────────────────────────
+(function loadData(){
+  const s = localStorage.getItem('zhicui_v2');
+  if(!s) return;
+  try{
+    const data = JSON.parse(s);
     if(data && data.main){
-      document.querySelector('main').innerHTML=data.main;
-      if(data.header) document.getElementById('site-header').innerHTML=data.header;
+      document.querySelector('main').innerHTML = data.main;
+      if(data.header) document.getElementById('site-header').innerHTML = data.header;
     } else {
-      // 舊格式相容（純字串）
-      document.querySelector('main').innerHTML=s;
+      document.querySelector('main').innerHTML = s;
     }
   }catch(e){}
 })();
+
+// ── GitHub 設定彈窗 ──────────────────────────────────────────
+function openGhModal(){
+  document.getElementById('gh-token-input').value  = GH_TOKEN;
+  document.getElementById('gh-repo-input').value   = GH_REPO;
+  document.getElementById('gh-file-input').value   = GH_FILE;
+  document.getElementById('gh-modal').style.display = 'flex';
+}
+function closeGhModal(){
+  document.getElementById('gh-modal').style.display = 'none';
+}
+function saveGhSettings(){
+  GH_TOKEN = document.getElementById('gh-token-input').value.trim();
+  GH_REPO  = document.getElementById('gh-repo-input').value.trim();
+  GH_FILE  = document.getElementById('gh-file-input').value.trim() || 'index.html';
+  localStorage.setItem('gh_token',  GH_TOKEN);
+  localStorage.setItem('gh_repo',   GH_REPO);
+  localStorage.setItem('gh_file',   GH_FILE);
+  closeGhModal();
+  showToast('✦ GitHub 設定已儲存');
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  const ghm = document.getElementById('gh-modal');
+  if(ghm) ghm.addEventListener('click', e => { if(e.target===ghm) closeGhModal(); });
+});
 
 // Staff
 let sc=20;
