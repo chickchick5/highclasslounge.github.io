@@ -903,6 +903,12 @@ function resetData(){
     } else {
       document.querySelector('main').innerHTML = s;
     }
+    // 載入後強制把所有 contenteditable 設為 false，防止非編輯模式可以直接改字
+    document.querySelectorAll('[contenteditable]').forEach(el => el.contentEditable = 'false');
+    // 也修復 gallery img 的 lightbox onclick（localStorage 存的 HTML 可能帶 editMode 判斷）
+    document.querySelectorAll('#gallery-grid .gallery-img').forEach(img => {
+      img.onclick = function(){ if(!editMode) openLightbox(this); };
+    });
   }catch(e){}
 })();
 
