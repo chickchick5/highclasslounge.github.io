@@ -416,36 +416,6 @@ footer{border-top:.5px solid rgba(201,168,76,.1);text-align:center;padding:1.4re
 
       <div class="divider"><div class="div-line"></div></div>
 
-      <!-- 表演組 -->
-      <div class="staff-section" id="sec-performer">
-        <div class="staff-section-header">
-          <span class="staff-section-icon">👯</span>
-          <span class="staff-section-title">Performers</span>
-          <span class="staff-section-count" contenteditable="false">表演組</span>
-        </div>
-        <div class="staff-grid" id="grid-performer">
-          <div class="staff-card">
-            <button class="del-btn" onclick="delStaff(this)">✕</button>
-            <div class="staff-avatar" contenteditable="false" onclick="triggerAvatarUpload(this)">
-              <span class="avatar-emoji">✨</span>
-              <div class="avatar-upload-overlay">📷<br>上傳照片</div>
-              <input type="file" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
-            </div>
-            <div class="staff-info">
-              <div class="staff-role" contenteditable="false">表演組</div>
-              <div class="staff-name" contenteditable="false">（角色名）</div>
-              <div class="staff-name-divider"></div>
-              <div class="staff-desc" contenteditable="false">舞台表演、現場氣氛帶動</div>
-            </div>
-          </div>
-        </div>
-        <div class="add-staff-row">
-          <button class="add-staff-btn" onclick="addStaff('grid-performer')">+ 新增成員</button>
-        </div>
-      </div>
-
-      <div class="divider"><div class="div-line"></div></div>
-
       <!-- 攝影師 -->
       <div class="staff-section" id="sec-photo">
         <div class="staff-section-header">
