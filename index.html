@@ -177,6 +177,20 @@ body.edit-mode .add-gal-btn{display:block}
 .gal-upload-hint{font-size:11px;color:var(--gold-d);text-align:center;margin-top:.5rem;display:none;letter-spacing:1px}
 body.edit-mode .gal-upload-hint{display:block}
 
+/* ── Lightbox ── */
+#lightbox{position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;cursor:zoom-out;padding:1.5rem}
+#lightbox.open{display:flex}
+#lightbox-img{max-width:100%;max-height:80vh;object-fit:contain;border:.5px solid rgba(201,168,76,.2);display:block;animation:lbIn .22s ease}
+@keyframes lbIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+#lightbox-caption{font-size:12px;color:rgba(201,168,76,.65);letter-spacing:2px;font-family:'Cinzel',serif;max-width:600px;text-align:center;line-height:1.8}
+#lightbox-close{position:fixed;top:16px;right:20px;font-size:22px;color:rgba(201,168,76,.5);cursor:pointer;line-height:1;transition:color .2s;background:none;border:none;font-family:serif}
+#lightbox-close:hover{color:var(--gold-l)}
+#lightbox-counter{font-size:11px;color:rgba(201,168,76,.35);letter-spacing:2px;font-family:'Cinzel',serif}
+#lightbox-prev,#lightbox-next{position:fixed;top:50%;transform:translateY(-50%);font-size:28px;color:rgba(201,168,76,.35);cursor:pointer;background:none;border:none;font-family:serif;padding:0 1rem;transition:color .2s;line-height:1}
+#lightbox-prev{left:0}#lightbox-next{right:0}
+#lightbox-prev:hover,#lightbox-next:hover{color:var(--gold-l)}
+.gallery-img{cursor:zoom-in}
+
 /* Footer */
 footer{border-top:.5px solid rgba(201,168,76,.1);text-align:center;padding:1.4rem;position:relative;z-index:1}
 .footer-text{font-size:10px;color:var(--gold-d);letter-spacing:2.5px;font-family:'Cinzel',serif}
@@ -858,6 +872,10 @@ function getFullHTML(){
     el.style.display = 'none';
   });
 
+  // 9b. Lightbox 關閉、gallery img 的 onclick 保留（訪客可點開圖）
+  const lb = clone.querySelector('#lightbox');
+  if(lb) lb.classList.remove('open');
+
   // 9. localStorage 裡的編輯快照不應影響訪客
   //    在推送版的 HTML 裡，直接把 loadData 改成無效（訪客 localStorage 是空的，不影響）
   //    不需額外處理，因為訪客自己的 localStorage 不會有 zhicui_v2
@@ -983,7 +1001,7 @@ function uploadGal(input){
     item.classList.remove('empty');
     item.style.display='flex';
     item.innerHTML=`<button class="del-gal-btn" onclick="delGal(this)">✕</button>
-      <img class="gallery-img" src="${e.target.result}" alt="場景照片">
+      <img class="gallery-img" src="${e.target.result}" alt="場景照片" onclick="if(!editMode)openLightbox(this)">
       <div class="gallery-caption" contenteditable="true">輸入照片說明...</div>`;
   };
   reader.readAsDataURL(file);
@@ -1003,6 +1021,52 @@ function addGalSlot(){
   grid.appendChild(d);
 }
 
+// Lightbox
+let lbImgs=[];let lbIdx=0;
+function getAllGalImgs(){
+  return Array.from(document.querySelectorAll('#gallery-grid .gallery-img'));
+}
+function openLightbox(imgEl){
+  lbImgs=getAllGalImgs();
+  lbIdx=lbImgs.indexOf(imgEl);
+  lbShow();
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function lbShow(){
+  const img=lbImgs[lbIdx];
+  document.getElementById('lightbox-img').src=img.src;
+  const cap=img.closest('.gallery-item')?.querySelector('.gallery-caption');
+  const capText=(cap&&cap.textContent.trim()&&cap.textContent.trim()!=='輸入照片說明...')?cap.textContent.trim():'';
+  document.getElementById('lightbox-caption').textContent=capText;
+  document.getElementById('lightbox-counter').textContent=lbImgs.length>1?(lbIdx+1)+' / '+lbImgs.length:'';
+  // show/hide arrows
+  document.getElementById('lightbox-prev').style.display=lbImgs.length>1?'block':'none';
+  document.getElementById('lightbox-next').style.display=lbImgs.length>1?'block':'none';
+}
+function lbNav(dir){
+  lbIdx=(lbIdx+dir+lbImgs.length)%lbImgs.length;
+  lbShow();
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow='';
+}
+function lbClickBg(e){if(e.target===document.getElementById('lightbox'))closeLightbox();}
+document.addEventListener('keydown',e=>{
+  const lb=document.getElementById('lightbox');
+  if(!lb.classList.contains('open'))return;
+  if(e.key==='Escape')closeLightbox();
+  if(e.key==='ArrowLeft')lbNav(-1);
+  if(e.key==='ArrowRight')lbNav(1);
+});
+// Also wire up any already-existing gallery images on page load
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('#gallery-grid .gallery-img').forEach(img=>{
+    img.onclick=function(){if(!editMode)openLightbox(this);};
+  });
+});
+
 // Events
 function addEvent(){
   const list=document.getElementById('event-list');
@@ -1016,5 +1080,16 @@ function addEvent(){
 }
 function delEvent(btn){if(confirm('確定刪除此場次？'))btn.closest('.event-card').remove();}
 </script>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="lbClickBg(event)">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button id="lightbox-prev" onclick="lbNav(-1);event.stopPropagation()">&#8249;</button>
+  <button id="lightbox-next" onclick="lbNav(1);event.stopPropagation()">&#8250;</button>
+  <img id="lightbox-img" src="" alt="場景照片" onclick="event.stopPropagation()">
+  <div id="lightbox-caption"></div>
+  <div id="lightbox-counter"></div>
+</div>
+
 </body>
 </html>
